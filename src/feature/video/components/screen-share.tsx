@@ -43,7 +43,7 @@ const ScreenShareButton = (props: ScreenShareButtonProps) => {
   };
   return (
     // eslint-disable-next-line react/jsx-no-useless-fragment
-    <>
+    <Tooltip title="Share screen">
       {isHostOrManager ? (
         <DropdownButton
           className="vc-dropdown-button"
@@ -67,12 +67,13 @@ const ScreenShareButton = (props: ScreenShareButtonProps) => {
           onClick={onScreenShareClick}
         />
       )}
-    </>
+    </Tooltip>
   );
 };
 
 const ScreenShareLockButton = (props: ScreenShareLockButtonProps) => {
   const { isLockedScreenShare, onScreenShareLockClick } = props;
+
   return (
     <Tooltip title={isLockedScreenShare ? 'unlock screen share' : ' lock screen share'}>
       <Button

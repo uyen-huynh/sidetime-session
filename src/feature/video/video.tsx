@@ -1,7 +1,5 @@
-import React, { useState, useContext, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useContext, useRef, useCallback } from 'react';
 import classnames from 'classnames';
-import _ from 'lodash';
-import { RouteComponentProps } from 'react-router-dom';
 import ZoomContext from '../../context/zoom-context';
 import ZoomMediaContext from '../../context/media-context';
 import AvatarActionContext from './context/avatar-context';
@@ -19,7 +17,9 @@ import ShareView from './components/share-view';
 import RemoteCameraControlPanel from './components/remote-camera-control';
 
 import './video.scss';
-const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => {
+import ChatContainer from '../chat/chat';
+
+const VideoContainer: React.FunctionComponent<any> = () => {
   const zmClient = useContext(ZoomContext);
   const {
     mediaStream,
@@ -28,6 +28,7 @@ const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => 
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   const shareViewRef = useRef<{ selfShareRef: HTMLCanvasElement | HTMLVideoElement | null }>(null);
   const [isRecieveSharing, setIsRecieveSharing] = useState(false);
+
   const canvasDimension = useCanvasDimension(mediaStream, videoRef);
   const activeVideo = useActiveVideo(zmClient);
   const { page, pageSize, totalPage, totalSize, setPage } = usePagination(zmClient, canvasDimension);
@@ -46,6 +47,7 @@ const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => 
   );
   const avatarActionState = useAvatarAction(zmClient, visibleParticipants);
   const networkQuality = useNetworkQuality(zmClient);
+
   return (
     <div className="viewport">
       <ShareView ref={shareViewRef} onRecieveSharingChange={setIsRecieveSharing} />
@@ -84,7 +86,6 @@ const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => 
         </AvatarActionContext.Provider>
       </div>
       <VideoFooter className="video-operations" sharing selfShareCanvas={shareViewRef.current?.selfShareRef} />
-
       {totalPage > 1 && <Pagination page={page} totalPage={totalPage} setPage={setPage} inSharing={isRecieveSharing} />}
       <ReportBtn />
     </div>

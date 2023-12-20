@@ -1,6 +1,5 @@
 import { useState, useCallback, useContext, useEffect, MutableRefObject } from 'react';
 import classNames from 'classnames';
-import { message } from 'antd';
 import ZoomContext from '../../../context/zoom-context';
 import CameraButton from './camera';
 import MicrophoneButton from './microphone';
@@ -32,6 +31,10 @@ import IsoRecordingModal from './recording-ask-modal';
 import { LiveStreamButton, LiveStreamModal } from './live-stream';
 import { IconFont } from '../../../component/icon-font';
 import { VideoMaskModel } from './video-mask-modal';
+import ApplicationContext from '../../../context/application-context';
+import { Button, Tooltip } from 'antd';
+import get from 'lodash/get';
+
 interface VideoFooterProps {
   className?: string;
   selfShareCanvas?: HTMLCanvasElement | HTMLVideoElement | null;
@@ -65,9 +68,11 @@ const VideoFooter = (props: VideoFooterProps) => {
   const [caption, setCaption] = useState({ text: '', isOver: false });
   const [activePlaybackUrl, setActivePlaybackUrl] = useState('');
   const [isMicrophoneForbidden, setIsMicrophoneForbidden] = useState(false);
+  const [hasNewMessage, setHasNewMessage] = useState(false);
 
   const zmClient = useContext(ZoomContext);
   const { mediaStream } = useContext(ZoomMediaContext);
+  const { toast, onSessionClose, audioOnly, handleClickChatButton, openSessionChat } = useContext(ApplicationContext);
 
   const liveTranscriptionClient = zmClient.getLiveTranscriptionClient();
   const liveStreamClient = zmClient.getLiveStreamClient();
@@ -76,45 +81,50 @@ const VideoFooter = (props: VideoFooterProps) => {
     recordingClient?.getCloudRecordingStatus() || ''
   );
   const [recordingIsoStatus, setRecordingIsoStatus] = useState<'' | RecordingStatus>('');
+  const [isAllowedLiveStream] = useState(false);
   const [liveStreamVisible, setLiveStreamVisible] = useState(false);
   const [liveStreamStatus, setLiveStreamStatus] = useState(liveStreamClient?.getLiveStreamStatus());
   // Video Mask
   const [videoMaskVisible, setVideoMaskVisible] = useState(false);
 
   const onCameraClick = useCallback(async () => {
-    if (isStartedVideo) {
-      await mediaStream?.stopVideo();
-      setIsStartedVideo(false);
-    } else {
-      const temporaryException = isIOSMobile() && window.crossOriginIsolated; // add ios mobile exception for test backward compatible.
-      if (mediaStream?.isRenderSelfViewWithVideoElement() && !temporaryException) {
-        const videoElement = document.querySelector(`#${SELF_VIDEO_ID}`) as HTMLVideoElement;
-        if (videoElement) {
-          await mediaStream?.startVideo({ videoElement });
-        }
+    try {
+      if (isStartedVideo) {
+        await mediaStream?.stopVideo();
+        setIsStartedVideo(false);
       } else {
-        const startVideoOptions = { hd: true, ptz: mediaStream?.isBrowserSupportPTZ() };
-        if (mediaStream?.isSupportVirtualBackground() && isBlur) {
-          Object.assign(startVideoOptions, { virtualBackground: { imageUrl: 'blur' } });
+        const temporaryException = isIOSMobile() && window.crossOriginIsolated; // add ios mobile exception for test backward compatible.
+        if (mediaStream?.isRenderSelfViewWithVideoElement() && !temporaryException) {
+          const videoElement = document.querySelector(`#${SELF_VIDEO_ID}`) as HTMLVideoElement;
+          if (videoElement) {
+            await mediaStream?.startVideo({ videoElement });
+          }
+        } else {
+          const startVideoOptions = { hd: true, ptz: mediaStream?.isBrowserSupportPTZ() };
+          if (mediaStream?.isSupportVirtualBackground() && isBlur) {
+            Object.assign(startVideoOptions, { virtualBackground: { imageUrl: 'blur' } });
+          }
+          await mediaStream?.startVideo(startVideoOptions);
+          if (!mediaStream?.isSupportMultipleVideos()) {
+            const canvasElement = document.querySelector(`#${SELF_VIDEO_ID}`) as HTMLCanvasElement;
+            mediaStream?.renderVideo(
+              canvasElement,
+              zmClient.getSessionInfo().userId,
+              canvasElement.width,
+              canvasElement.height,
+              0,
+              0,
+              3
+            );
+          }
         }
-        await mediaStream?.startVideo(startVideoOptions);
-        if (!mediaStream?.isSupportMultipleVideos()) {
-          const canvasElement = document.querySelector(`#${SELF_VIDEO_ID}`) as HTMLCanvasElement;
-          mediaStream?.renderVideo(
-            canvasElement,
-            zmClient.getSessionInfo().userId,
-            canvasElement.width,
-            canvasElement.height,
-            0,
-            0,
-            3
-          );
-        }
-      }
 
-      setIsStartedVideo(true);
+        setIsStartedVideo(true);
+      }
+    } catch (error) {
+      toast.error(get(error, 'reason'));
     }
-  }, [mediaStream, isStartedVideo, zmClient, isBlur]);
+  }, [isStartedVideo, mediaStream, isBlur, zmClient, toast]);
   const onMicrophoneClick = useCallback(async () => {
     if (isStartedAudio) {
       if (isMuted) {
@@ -214,26 +224,29 @@ const VideoFooter = (props: VideoFooterProps) => {
     } else if (action === AudioChangeAction.Muted) {
       setIsMuted(true);
       if (source === MutedSource.PassiveByMuteOne) {
-        message.info('Host muted you');
+        toast.info('Host muted you');
       }
     } else if (action === AudioChangeAction.Unmuted) {
       setIsMuted(false);
       if (source === 'passive') {
-        message.info('Host unmuted you');
+        toast.info('Host unmuted you');
       }
     }
   }, []);
+
   const onScreenShareClick = useCallback(async () => {
-    if (mediaStream?.getShareStatus() === ShareStatus.End && selfShareCanvas) {
-      await mediaStream?.startShareScreen(selfShareCanvas, { requestReadReceipt: true });
-    }
+    try {
+      if (mediaStream?.getShareStatus() === ShareStatus.End && selfShareCanvas) {
+        await mediaStream?.startShareScreen(selfShareCanvas, { requestReadReceipt: true });
+      }
+    } catch {}
   }, [mediaStream, selfShareCanvas]);
 
   const onLiveTranscriptionClick = useCallback(async () => {
     if (isDisableCaptions) {
-      message.info('Captions has been disable by host.');
+      toast.info('Captions has been disable by host.');
     } else if (isStartedLiveTranscription) {
-      message.info('Live transcription has started.');
+      toast.info('Live transcription has started.');
     } else if (!isStartedLiveTranscription) {
       await liveTranscriptionClient?.startLiveTranscription();
       setIsStartedLiveTranscription(true);
@@ -256,11 +269,15 @@ const VideoFooter = (props: VideoFooterProps) => {
 
   const onLeaveClick = useCallback(async () => {
     await zmClient.leave();
-  }, [zmClient]);
+    toast.warning('You just leave the session');
+    onSessionClose();
+  }, [onSessionClose, toast, zmClient]);
 
   const onEndClick = useCallback(async () => {
     await zmClient.leave(true);
-  }, [zmClient]);
+    toast.warning('You just leave the session');
+    onSessionClose();
+  }, [onSessionClose, toast, zmClient]);
 
   const onPassivelyStopShare = useCallback(({ reason }) => {
     console.log('passively stop reason:', reason);
@@ -297,29 +314,33 @@ const VideoFooter = (props: VideoFooterProps) => {
   }, []);
 
   const onRecordingClick = async (key: string) => {
-    switch (key) {
-      case 'Record': {
-        await recordingClient?.startCloudRecording();
-        break;
+    try {
+      switch (key) {
+        case 'Record': {
+          await recordingClient?.startCloudRecording();
+          break;
+        }
+        case 'Resume': {
+          await recordingClient?.resumeCloudRecording();
+          break;
+        }
+        case 'Stop': {
+          await recordingClient?.stopCloudRecording();
+          break;
+        }
+        case 'Pause': {
+          await recordingClient?.pauseCloudRecording();
+          break;
+        }
+        case 'Status': {
+          break;
+        }
+        default: {
+          await recordingClient?.startCloudRecording();
+        }
       }
-      case 'Resume': {
-        await recordingClient?.resumeCloudRecording();
-        break;
-      }
-      case 'Stop': {
-        await recordingClient?.stopCloudRecording();
-        break;
-      }
-      case 'Pause': {
-        await recordingClient?.pauseCloudRecording();
-        break;
-      }
-      case 'Status': {
-        break;
-      }
-      default: {
-        await recordingClient?.startCloudRecording();
-      }
+    } catch (error) {
+      toast.error(get(error, 'reason'));
     }
   };
   const onVideoCaptureChange = useCallback((payload) => {
@@ -350,7 +371,7 @@ const VideoFooter = (props: VideoFooterProps) => {
   const onCaptionStatusChange = useCallback((payload) => {
     const { autoCaption } = payload;
     if (autoCaption) {
-      message.info('Auto live transcription enabled!');
+      toast.info('Auto live transcription enabled!');
     }
   }, []);
 
@@ -370,7 +391,7 @@ const VideoFooter = (props: VideoFooterProps) => {
   }, []);
 
   const onCanSeeMyScreen = useCallback(() => {
-    message.info('Users can now see your screen', 1);
+    toast.info('Users can now see your screen', 1);
   }, []);
   const onSelectVideoPlayback = useCallback(
     async (url: string) => {
@@ -397,9 +418,12 @@ const VideoFooter = (props: VideoFooterProps) => {
   const onLiveStreamStatusChange = useCallback((status) => {
     setLiveStreamStatus(status);
     if (status === LiveStreamStatus.Timeout) {
-      message.error('Start live streaming timeout');
+      toast.error('Start live streaming timeout');
     }
   }, []);
+
+  const onChatMessage = useCallback(() => setHasNewMessage(true), []);
+
   useEffect(() => {
     zmClient.on('current-audio-change', onHostAudioMuted);
     zmClient.on('passively-stop-share', onPassivelyStopShare);
@@ -484,7 +508,21 @@ const VideoFooter = (props: VideoFooterProps) => {
       }
     };
   }, [mediaStream, zmClient]);
+
+  useEffect(() => {
+    if (openSessionChat) {
+      setHasNewMessage(false);
+    } else {
+      zmClient.on('chat-on-message', onChatMessage);
+    }
+
+    return () => {
+      zmClient.off('chat-on-message', onChatMessage);
+    };
+  }, [onChatMessage, openSessionChat, zmClient]);
+
   const recordingButtons: RecordButtonProps[] = getRecordingButtons(recordingStatus, zmClient.isHost());
+
   return (
     <div className={classNames('video-footer', className)}>
       {isAudioEnable && (
@@ -507,34 +545,49 @@ const VideoFooter = (props: VideoFooterProps) => {
           isMicrophoneForbidden={isMicrophoneForbidden}
         />
       )}
-      <CameraButton
-        isStartedVideo={isStartedVideo}
-        onCameraClick={onCameraClick}
-        onSwitchCamera={onSwitchCamera}
-        onMirrorVideo={onMirrorVideo}
-        onVideoStatistic={() => {
-          setSelectedStatisticTab('video');
-          setStatisticVisible(true);
-        }}
-        onBlurBackground={onBlurBackground}
-        onSelectVideoPlayback={onSelectVideoPlayback}
-        activePlaybackUrl={activePlaybackUrl}
-        cameraList={cameraList}
-        activeCamera={activeCamera}
-        isMirrored={isMirrored}
-        isBlur={isBlur}
-      />
-      {sharing && (
-        <ScreenShareButton
-          sharePrivilege={sharePrivilege}
-          isHostOrManager={zmClient.isHost() || zmClient.isManager()}
-          onScreenShareClick={onScreenShareClick}
-          onSharePrivilegeClick={async (privilege) => {
-            await mediaStream?.setSharePrivilege(privilege);
-            setSharePrivileg(privilege);
-          }}
-        />
+      {!audioOnly && (
+        <>
+          <CameraButton
+            isStartedVideo={isStartedVideo}
+            onCameraClick={onCameraClick}
+            onSwitchCamera={onSwitchCamera}
+            onMirrorVideo={onMirrorVideo}
+            onVideoStatistic={() => {
+              setSelectedStatisticTab('video');
+              setStatisticVisible(true);
+            }}
+            onBlurBackground={onBlurBackground}
+            onSelectVideoPlayback={onSelectVideoPlayback}
+            activePlaybackUrl={activePlaybackUrl}
+            cameraList={cameraList}
+            activeCamera={activeCamera}
+            isMirrored={isMirrored}
+            isBlur={isBlur}
+          />
+          {sharing && (
+            <ScreenShareButton
+              sharePrivilege={sharePrivilege}
+              isHostOrManager={zmClient.isHost() || zmClient.isManager()}
+              onScreenShareClick={onScreenShareClick}
+              onSharePrivilegeClick={async (privilege) => {
+                await mediaStream?.setSharePrivilege(privilege);
+                setSharePrivileg(privilege);
+              }}
+            />
+          )}
+        </>
       )}
+      <Tooltip title="Session chat">
+        <Button
+          className={classNames('vc-button', { 'new-message': hasNewMessage })}
+          icon={<IconFont type="icon-chat" />}
+          ghost
+          shape="circle"
+          size="large"
+          onClick={handleClickChatButton}
+          title="Session chat"
+        />
+      </Tooltip>
       {recordingButtons.map((button: RecordButtonProps) => {
         return (
           <RecordingButton
@@ -558,7 +611,7 @@ const VideoFooter = (props: VideoFooterProps) => {
           <TranscriptionSubtitle text={caption.text} />
         </>
       )}
-      {liveStreamClient?.isLiveStreamEnabled() && zmClient.isHost() && (
+      {isAllowedLiveStream && liveStreamClient?.isLiveStreamEnabled() && zmClient.isHost() && (
         <>
           <LiveStreamButton
             isLiveStreamOn={liveStreamStatus === LiveStreamStatus.InProgress}

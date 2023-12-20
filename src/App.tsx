@@ -1,35 +1,35 @@
-import { useEffect, useContext, useState, useCallback, useReducer, useMemo } from 'react';
-import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
+import { useEffect, useState, useCallback, useReducer, useMemo } from 'react';
 import ZoomVideo, { ConnectionState, ReconnectReason } from '@zoom/videosdk';
-import { message, Modal } from 'antd';
+import { Modal, message } from 'antd';
 import 'antd/dist/antd.min.css';
 import produce from 'immer';
-import Home from './feature/home/home';
 import Video from './feature/video/video';
 import VideoSingle from './feature/video/video-single';
 import VideoNonSAB from './feature/video/video-non-sab';
-import Preview from './feature/preview/preview';
 import ZoomContext from './context/zoom-context';
 import ZoomMediaContext from './context/media-context';
 import LoadingLayer from './component/loading-layer';
-import Chat from './feature/chat/chat';
-import Command from './feature/command/command';
-import Subsession from './feature/subsession/subsession';
 import { MediaStream } from './index-types';
 import './App.css';
+import ApplicationContext from './context/application-context';
 
-import { isAndroidBrowser } from './utils/platform';
+import noop from 'lodash/noop';
+import merge from 'lodash/merge';
+import ChatContainer from './feature/chat/chat';
+
+const zmClient = ZoomVideo.createClient();
 interface AppProps {
   meetingArgs: {
-    sdkKey: string;
     topic: string;
     signature: string;
     name: string;
     password?: string;
-    webEndpoint?: string;
-    enforceGalleryView?: string;
-    customerJoinId?: string;
-    lang?: string;
+    groupSession?: boolean;
+  };
+  applicationProviderValue: {
+    toast?: any;
+    onSessionClose?: any;
+    audioOnly?: boolean;
   };
 }
 const mediaShape = {
@@ -46,6 +46,7 @@ const mediaShape = {
     decode: false
   }
 };
+
 const mediaReducer = produce((draft, action) => {
   switch (action.type) {
     case 'audio-encode': {
@@ -93,18 +94,10 @@ declare global {
 
 function App(props: AppProps) {
   const {
-    meetingArgs: {
-      sdkKey,
-      topic,
-      signature,
-      name,
-      password,
-      webEndpoint: webEndpointArg,
-      enforceGalleryView,
-      customerJoinId,
-      lang
-    }
-  } = props;
+    meetingArgs: { topic, signature, name, password, groupSession },
+    applicationProviderValue
+  } = merge({ applicationProviderValue: { toast: message, onSessionClose: noop, audioOnly: false } }, props);
+
   const [loading, setIsLoading] = useState(true);
   const [loadingText, setLoadingText] = useState('');
   const [isFailover, setIsFailover] = useState<boolean>(false);
@@ -112,27 +105,26 @@ function App(props: AppProps) {
   const [mediaState, dispatch] = useReducer(mediaReducer, mediaShape);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [isSupportGalleryView, setIsSupportGalleryView] = useState<boolean>(true);
-  const zmClient = useContext(ZoomContext);
-  let webEndpoint: any;
-  if (webEndpointArg) {
-    webEndpoint = webEndpointArg;
-  } else {
-    webEndpoint = window?.webEndpoint ?? 'zoom.us';
-  }
+  const [openSessionChat, setOpenSessionChat] = useState<boolean>(false);
+
+  const { toast, onSessionClose } = applicationProviderValue;
+
   const mediaContext = useMemo(() => ({ ...mediaState, mediaStream }), [mediaState, mediaStream]);
-  const galleryViewWithoutSAB = Number(enforceGalleryView) === 1 && !window.crossOriginIsolated;
+  const galleryViewWithoutSAB = groupSession && !window.crossOriginIsolated;
+
   useEffect(() => {
     const init = async () => {
-      await zmClient.init('en-US', `${window.location.origin}/lib`, {
-        webEndpoint,
-        enforceMultipleVideos: galleryViewWithoutSAB,
+      await zmClient.init('en-US', 'Global', {
+        patchJsMedia: true,
+        enforceMultipleVideos: true,
         enforceVirtualBackground: galleryViewWithoutSAB,
         stayAwake: true
       });
       try {
         setLoadingText('Joining the session...');
         await zmClient.join(topic, signature, name, password).catch((e) => {
-          console.log(e);
+          toast.error(e.reason);
+          onSessionClose();
         });
         const stream = zmClient.getMediaStream();
         setMediaStream(stream);
@@ -140,14 +132,14 @@ function App(props: AppProps) {
         setIsLoading(false);
       } catch (e: any) {
         setIsLoading(false);
-        message.error(e.reason);
+        toast.error(e.reason);
       }
     };
     init();
     return () => {
       ZoomVideo.destroyClient();
     };
-  }, [sdkKey, signature, zmClient, topic, name, password, webEndpoint, galleryViewWithoutSAB, customerJoinId]);
+  }, [signature, topic, name, password, galleryViewWithoutSAB, toast, onSessionClose]);
   const onConnectionChange = useCallback(
     (payload) => {
       if (payload.state === ConnectionState.Reconnecting) {
@@ -169,20 +161,16 @@ function App(props: AppProps) {
         }
         window.zmClient = zmClient;
         window.mediaStream = zmClient.getMediaStream();
-
-        console.log('getSessionInfo', zmClient.getSessionInfo());
       } else if (payload.state === ConnectionState.Closed) {
         setStatus('closed');
         dispatch({ type: 'reset-media' });
         if (payload.reason === 'ended by host') {
-          Modal.warning({
-            title: 'Meeting ended',
-            content: 'This meeting has been ended by host'
-          });
+          toast.warning('This meeting has been ended by host');
+          onSessionClose();
         }
       }
     },
-    [isFailover, zmClient]
+    [isFailover, onSessionClose, toast]
   );
   const onMediaSDKChange = useCallback((payload) => {
     const { action, type, result } = payload;
@@ -197,16 +185,6 @@ function App(props: AppProps) {
     console.log('onAudioMerged', payload);
   }, []);
 
-  const onLeaveOrJoinSession = useCallback(async () => {
-    if (status === 'closed') {
-      setIsLoading(true);
-      await zmClient.join(topic, signature, name, password);
-      setIsLoading(false);
-    } else if (status === 'connected') {
-      await zmClient.leave();
-      message.warn('You have left the session.');
-    }
-  }, [zmClient, status, topic, signature, name, password]);
   useEffect(() => {
     zmClient.on('connection-change', onConnectionChange);
     zmClient.on('media-sdk-change', onMediaSDKChange);
@@ -218,33 +196,31 @@ function App(props: AppProps) {
       zmClient.off('dialout-state-change', onDialoutChange);
       zmClient.off('merged-audio', onAudioMerged);
     };
-  }, [zmClient, onConnectionChange, onMediaSDKChange, onDialoutChange, onAudioMerged]);
+  }, [onConnectionChange, onMediaSDKChange, onDialoutChange, onAudioMerged]);
+
+  const handleClickChatButton = useCallback(() => setOpenSessionChat(!openSessionChat), [openSessionChat]);
+
+  const applicationContextValue = useMemo(
+    () => ({ ...applicationProviderValue, handleClickChatButton, openSessionChat }),
+    [applicationProviderValue, handleClickChatButton, openSessionChat]
+  );
+
   return (
-    <div className="App">
-      {loading && <LoadingLayer content={loadingText} />}
-      {!loading && (
-        <ZoomMediaContext.Provider value={mediaContext}>
-          <Router>
-            <Switch>
-              <Route
-                path="/"
-                render={(props) => <Home {...props} status={status} onLeaveOrJoinSession={onLeaveOrJoinSession} />}
-                exact
-              />
-              <Route path="/index.html" component={Home} exact />
-              <Route path="/chat" component={Chat} />
-              <Route path="/command" component={Command} />
-              <Route
-                path="/video"
-                component={isSupportGalleryView ? Video : galleryViewWithoutSAB ? VideoNonSAB : VideoSingle}
-              />
-              <Route path="/subsession" component={Subsession} />
-              <Route path="/preview" component={Preview} />
-            </Switch>
-          </Router>
-        </ZoomMediaContext.Provider>
-      )}
-    </div>
+    <ApplicationContext.Provider value={applicationContextValue}>
+      <ZoomContext.Provider value={zmClient}>
+        <div className="App">
+          <ZoomMediaContext.Provider value={mediaContext}>
+            {loading && <LoadingLayer content={loadingText} />}
+            {!loading && (
+              <>
+                {isSupportGalleryView ? <Video /> : galleryViewWithoutSAB ? <VideoNonSAB /> : <VideoSingle />}
+                <ChatContainer />
+              </>
+            )}
+          </ZoomMediaContext.Provider>
+        </div>
+      </ZoomContext.Provider>
+    </ApplicationContext.Provider>
   );
 }
 

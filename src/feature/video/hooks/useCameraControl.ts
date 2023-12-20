@@ -4,6 +4,7 @@ import produce from 'immer';
 import { CameraControlCmd } from '@zoom/videosdk';
 import AvatarActionContext from '../context/avatar-context';
 import { ZoomClient, MediaStream } from '../../../index-types';
+import applicationContext from '../../../context/application-context';
 export function useCameraControl(zmClient: ZoomClient, mediaStream: MediaStream | null) {
   const [isInControl, setIsInControl] = useState(false);
   const [controllingUserId, setControllingUserId] = useState(0);
@@ -21,6 +22,8 @@ export function useCameraControl(zmClient: ZoomClient, mediaStream: MediaStream 
     dispatch,
     avatarActionState: { isControllingRemoteCamera }
   } = useContext(AvatarActionContext);
+  const { toast } = useContext(applicationContext);
+
   const onReceiveFarEndControl = useCallback(
     ({ userId, displayName, currentControllingUserId, currentControllingDisplayName }) => {
       let message = `${displayName} request to control your camera?`;
@@ -49,10 +52,10 @@ export function useCameraControl(zmClient: ZoomClient, mediaStream: MediaStream 
       dispatch({ type: 'set-is-controlling-remote-camera', payload: isApproved });
       if (isApproved) {
         setCurrentControlledUser({ userId, displayName });
-        message.info(`You can control ${displayName}'s camera now.`);
+        toast.info(`You can control ${displayName}'s camera now.`);
       } else {
         setCurrentControlledUser({ userId: 0, displayName: '' });
-        message.warn(`${displayName} rejected your control request.`);
+        toast.warn(`${displayName} rejected your control request.`);
       }
     },
     [dispatch]
@@ -60,9 +63,9 @@ export function useCameraControl(zmClient: ZoomClient, mediaStream: MediaStream 
 
   const onCameraInControlChange = useCallback(({ isControlled, userId }) => {
     if (isControlled) {
-      message.info('Your camera is controlled by other one');
+      toast.info('Your camera is controlled by other one');
     } else {
-      message.info('You can control your camera now.');
+      toast.info('You can control your camera now.');
     }
     setIsInControl(isControlled);
     setControllingUserId(userId);

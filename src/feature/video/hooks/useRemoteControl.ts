@@ -1,21 +1,26 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { ZoomClient, MediaStream } from '../../../index-types';
 import { ApprovedState, RemoteControlAppStatus, RemoteControlSessionStatus } from '@zoom/videosdk';
 import { message, Modal } from 'antd';
+import applicationContext from '../../../context/application-context';
 export function useRemoteControl(
   zmClient: ZoomClient,
   mediaStream: MediaStream | null,
   selfShareView: HTMLCanvasElement | HTMLVideoElement | null,
   shareView: HTMLCanvasElement | null
 ) {
+  const { toast } = useContext(applicationContext);
+
   const [isControllingUser, setIsControllingUser] = useState(mediaStream?.isControllingUserRemotely());
   const [controllingUser, setControllingUser] = useState<{ userId: number; displayName: string } | null>(null);
   const isDownloadAppRef = useRef(false);
   const launchModalRef = useRef<any>(null);
+
   const onInControllingChange = useCallback((payload) => {
     const { isControlling } = payload;
     setIsControllingUser(isControlling);
   }, []);
+
   const onControlApproveChange = useCallback(
     (payload) => {
       const { state } = payload;
@@ -27,7 +32,7 @@ export function useRemoteControl(
           }
         }
       } else {
-        message.info('Your remote control request is rejected');
+        toast.info('Your remote control request is rejected');
       }
     },
     [mediaStream, shareView]

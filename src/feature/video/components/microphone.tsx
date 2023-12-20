@@ -50,7 +50,7 @@ const MicrophoneButton = (props: MicrophoneButtonProps) => {
   } = props;
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
   const level = useCurrentAudioLevel();
-  const tooltipText = isStartedAudio ? (isMuted ? 'unmute' : 'mute') : 'start audio';
+  const tooltipText = isStartedAudio ? (isMuted ? 'unmute' : 'mute') : 'Start audio';
   const menuItems = [];
   if (microphoneList?.length && audio !== 'phone') {
     menuItems.push(

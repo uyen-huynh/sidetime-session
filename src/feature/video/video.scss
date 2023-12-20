@@ -2,11 +2,12 @@
   position: relative;
   padding: 5vh 0 10vh;
   box-sizing: border-box;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   background-color: #000;
   display: flex;
   overflow: hidden;
+
   .video-container {
     position: relative;
     width: 100%;
@@ -41,14 +42,32 @@
       right: 30px;
       z-index: 2;
       display: none;
+
       &.single-self-video {
         width: 100%;
         height: 100%;
         top: 0;
         left: 0;
       }
+
       &.self-video-show {
         display: block;
+      }
+
+      &.self-with-sharescreen {
+        width: 100%;
+        left: 0;
+      }
+
+      &.avatar {
+        display: flex;
+        border: 1px solid white;
+        border-radius: 8px;
+
+        &.self-video-show {
+          border: unset;
+          border-radius: unset;
+        }
       }
     }
   }

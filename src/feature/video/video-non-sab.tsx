@@ -21,7 +21,7 @@ import { useAvatarAction } from './hooks/useAvatarAction';
 import { SELF_VIDEO_ID } from './video-constants';
 import './video.scss';
 
-const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => {
+const VideoContainer: React.FunctionComponent<any> = (props) => {
   const zmClient = useContext(ZoomContext);
   const {
     mediaStream,

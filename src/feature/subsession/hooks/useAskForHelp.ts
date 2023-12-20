@@ -1,9 +1,11 @@
-import { useCallback, useEffect } from 'react';
-import { Modal, message } from 'antd';
+import { useCallback, useContext, useEffect } from 'react';
+import { Modal } from 'antd';
 import { SubsessionClient, ZoomClient } from '../../../index-types';
 import { AskHostHelpResponse } from '@zoom/videosdk';
+import applicationContext from '../../../context/application-context';
 const { confirm } = Modal;
 export function useAskForHelp(zmClient: ZoomClient, ssClient: SubsessionClient | null) {
+  const {toast} = useContext(applicationContext)
   // Host reecived the ask for help request
   const onAskForHelp = useCallback(
     (payload) => {
@@ -27,11 +29,11 @@ export function useAskForHelp(zmClient: ZoomClient, ssClient: SubsessionClient |
   const onAskForHelpResponse = useCallback((payload) => {
     const { result } = payload;
     if (result === AskHostHelpResponse.Received) {
-      message.success('The host has been invited.');
+      toast.success('The host has been invited.');
     } else if (result === AskHostHelpResponse.Busy || result === AskHostHelpResponse.Ignore) {
-      message.warning('The host is currently helping others.Please try again later.');
+      toast.warning('The host is currently helping others.Please try again later.');
     } else if (result === AskHostHelpResponse.AlreadyInRoom) {
-      message.success('The host is currently in this subsession.');
+      toast.success('The host is currently in this subsession.');
     }
   }, []);
   useEffect(() => {

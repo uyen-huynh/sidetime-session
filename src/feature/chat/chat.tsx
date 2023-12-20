@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useState, useRef } from 'react';
 import produce from 'immer';
-import { Input } from 'antd';
+import { Button, Input } from 'antd';
 import { ChatPrivilege } from '@zoom/videosdk';
 import ZoomContext from '../../context/zoom-context';
 import { ChatReceiver, ChatRecord } from './chat-types';
@@ -10,9 +10,14 @@ import ChatReceiverContainer from './component/chat-receiver';
 
 import { useMount } from '../../hooks';
 import './chat.scss';
+import classNames from 'classnames';
+import applicationContext from '../../context/application-context';
+
 const { TextArea } = Input;
-const ChatContainer = () => {
+
+const ChatContainer: React.FC = () => {
   const zmClient = useContext(ZoomContext);
+  const { openSessionChat, handleClickChatButton: handleCloseSessionChat } = useContext(applicationContext);
   const chatClient = zmClient.getChatClient();
   const [chatRecords, setChatRecords] = useState<ChatRecord[]>([]);
   const [currentUserId, setCurrentUserId] = useState<number>(0);
@@ -22,7 +27,9 @@ const ChatContainer = () => {
   const [isHost, setIsHost] = useState<boolean>(false);
   const [isManager, setIsManager] = useState<boolean>(false);
   const [chatDraft, setChatDraft] = useState<string>('');
+
   const chatWrapRef = useRef<HTMLDivElement | null>(null);
+
   const onChatMessage = useCallback(
     (payload: ChatRecord) => {
       setChatRecords(
@@ -116,16 +123,21 @@ const ChatContainer = () => {
     },
     [chatClient, chatDraft, chatUser]
   );
+
   useMount(() => {
     setCurrentUserId(zmClient.getSessionInfo().userId);
     if (chatClient) {
       setChatPrivilege(chatClient.getPrivilege());
     }
   });
+
   return (
-    <div className="chat-container">
+    <div className={classNames('chat-container', openSessionChat || 'd-none')}>
       <div className="chat-wrap">
         <h2>Chat</h2>
+        <Button className="close-icon" onClick={handleCloseSessionChat}>
+          &#10006;
+        </Button>
         <div className="chat-message-wrap" ref={chatWrapRef}>
           {chatRecords.map((record) => (
             <ChatMessageItem
