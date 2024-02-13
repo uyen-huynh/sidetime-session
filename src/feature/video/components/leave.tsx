@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Dropdown, Menu } from 'antd';
+import { Button, Dropdown, Menu, Tooltip } from 'antd';
 import classNames from 'classnames';
 import { UpOutlined } from '@ant-design/icons';
 import { IconFont } from '../../../component/icon-font';
@@ -15,30 +15,34 @@ interface LeaveButtonProps {
 const LeaveButton = (props: LeaveButtonProps) => {
   const { onLeaveClick, onEndClick, isHost } = props;
 
-  return isHost ? (
-    <DropdownButton
-      className="vc-dropdown-button"
-      size="large"
-      menu={getAntdDropdownMenu([getAntdItem('End session', 'end')], onEndClick)}
-      trigger={['click']}
-      type="ghost"
-      onClick={onLeaveClick}
-      icon={<UpOutlined />}
-      placement="topRight"
-    >
-      <IconFont type="icon-leave" />
-    </DropdownButton>
-  ) : (
-    <Button
-      className={classNames('vc-button')}
-      icon={<IconFont type="icon-leave" />}
-      // eslint-disable-next-line react/jsx-boolean-value
-      ghost={true}
-      shape="circle"
-      size="large"
-      onClick={onLeaveClick}
-      title="Leave session"
-    />
+  return (
+    <Tooltip title="Leave session">
+      {isHost ? (
+        <DropdownButton
+          className="vc-dropdown-button leave-dropdown"
+          size="large"
+          menu={getAntdDropdownMenu([getAntdItem('End session', 'end')], onEndClick)}
+          trigger={['click']}
+          type="ghost"
+          onClick={onLeaveClick}
+          icon={<UpOutlined />}
+          placement="topRight"
+        >
+          <IconFont type="icon-leave" />
+        </DropdownButton>
+      ) : (
+        <Button
+          className="vc-button leave-btn"
+          icon={<IconFont type="icon-leave" />}
+          // eslint-disable-next-line react/jsx-boolean-value
+          ghost={true}
+          shape="circle"
+          size="large"
+          onClick={onLeaveClick}
+          title="Leave session"
+        />
+      )}
+    </Tooltip>
   );
 };
 

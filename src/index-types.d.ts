@@ -1,7 +1,7 @@
 import {
   VideoClient,
   Stream,
-  Participant,
+  Participant as SDKParticipant,
   ChatClient as SDKChatClient,
   SubsessionClient as SDKSubsessionClient,
   RecordingClient as SDKRecordingClient,
@@ -12,7 +12,7 @@ import {
 
 export type ZoomClient = typeof VideoClient;
 export type MediaStream = typeof Stream;
-export type Participant = Participant;
+export type Participant = SDKParticipant;
 export type ChatClient = typeof SDKChatClient;
 export type CommandChannelClient = typeof CommandChannel;
 export type SubsessionClient = typeof SDKSubsessionClient;

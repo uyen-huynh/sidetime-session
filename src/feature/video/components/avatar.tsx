@@ -5,8 +5,7 @@ import { IconFont } from '../../../component/icon-font';
 import classNames from 'classnames';
 import './avatar.scss';
 import { Participant } from '../../../index-types';
-import { useHover } from '../../../hooks';
-import AvatarMore from './avatar-more';
+
 interface AvatarProps {
   participant: Participant;
   style?: { [key: string]: string };
@@ -17,9 +16,8 @@ interface AvatarProps {
 const networkQualityIcons = ['bad', 'bad', 'normal', 'good', 'good', 'good'];
 const Avatar = (props: AvatarProps) => {
   const { participant, style, isActive, className, networkQuality } = props;
-  const { displayName, audio, muted, bVideoOn, userId } = participant;
+  const { displayName, audio, muted, bVideoOn } = participant;
   const avatarRef = useRef(null);
-  const isHover = useHover(avatarRef);
 
   return (
     <div
@@ -43,7 +41,6 @@ const Avatar = (props: AvatarProps) => {
         </div>
       )}
       {!bVideoOn && <p className="center-name">{displayName}</p>}
-      <AvatarMore userId={participant.userId} isHover={isHover} />
     </div>
   );
 };

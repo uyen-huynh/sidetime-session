@@ -1,5 +1,6 @@
 .App {
   text-align: center;
+  position: relative;
 }
 p,li,ul,ol,h1,h2{
   padding: 0;

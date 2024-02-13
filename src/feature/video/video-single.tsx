@@ -20,7 +20,7 @@ import { usePrevious } from '../../hooks';
 import './video.scss';
 import { isShallowEqual } from '../../utils/util';
 
-const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => {
+const VideoContainer: React.FunctionComponent<any> = (props) => {
   const zmClient = useContext(ZoomContext);
   const {
     mediaStream,
@@ -54,7 +54,10 @@ const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => 
     () => participants.find((user) => user.userId === activeVideo),
     [participants, activeVideo]
   );
-  const isCurrentUserStartedVideo = zmClient.getCurrentUserInfo()?.bVideoOn;
+  const currentUser = zmClient.getCurrentUserInfo();
+
+  const isCurrentUserStartedVideo = currentUser?.bVideoOn;
+
   useEffect(() => {
     if (mediaStream && videoRef.current && isVideoDecodeReady) {
       if (activeUser?.bVideoOn !== previousActiveUser.current?.bVideoOn) {
@@ -103,6 +106,8 @@ const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => 
     }
   }, [mediaStream, activeUser, isVideoDecodeReady, canvasDimension, previousCanvasDimension]);
   const avatarActionState = useAvatarAction(zmClient, activeUser ? [activeUser] : []);
+  const currentUserAvatarActionState = useAvatarAction(zmClient, currentUser ? [currentUser] : []);
+
   return (
     <div className="viewport">
       <ShareView ref={shareViewRef} onRecieveSharingChange={setIsRecieveSharing} />
@@ -111,25 +116,30 @@ const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => 
           'video-container-in-sharing': isRecieveSharing
         })}
       >
-        {mediaStream?.isRenderSelfViewWithVideoElement() ? (
-          <video
-            id={SELF_VIDEO_ID}
-            className={classnames('self-video', {
-              'single-self-video': participants.length === 1,
-              'self-video-show': isCurrentUserStartedVideo
-            })}
-          />
-        ) : (
-          <canvas
-            id={SELF_VIDEO_ID}
-            width="254"
-            height="143"
-            className={classnames('self-video', {
-              'single-self-video': participants.length === 1,
-              'self-video-show': isCurrentUserStartedVideo
-            })}
-          />
+        <video
+          id={SELF_VIDEO_ID}
+          className={classnames('self-video', {
+            'single-self-video': participants.length === 1,
+            'self-video-show': isCurrentUserStartedVideo,
+            'self-with-sharescreen': isRecieveSharing
+          })}
+        />
+        {participants.length > 1 && (
+          <AvatarActionContext.Provider value={currentUserAvatarActionState}>
+            {currentUser && (
+              <Avatar
+                participant={currentUser}
+                isActive={false}
+                className={classnames('self-video', {
+                  'self-video-show': isCurrentUserStartedVideo,
+                  'self-with-sharescreen': isRecieveSharing
+                })}
+                networkQuality={networkQuality[`${currentUser.userId}`]}
+              />
+            )}
+          </AvatarActionContext.Provider>
         )}
+
         <div className="single-video-wrap">
           <canvas className="video-canvas" id="video-canvas" width="800" height="600" ref={videoRef} />
 
@@ -142,7 +152,6 @@ const VideoContainer: React.FunctionComponent<RouteComponentProps> = (props) => 
                 networkQuality={networkQuality[`${activeUser.userId}`]}
               />
             )}
-            <RemoteCameraControlPanel />
           </AvatarActionContext.Provider>
         </div>
       </div>

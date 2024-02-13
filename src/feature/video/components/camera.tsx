@@ -107,7 +107,7 @@ const CameraButton = (props: CameraButtonProps) => {
           <VideoCameraOutlined />
         </Dropdown.Button>
       ) : (
-        <Tooltip title={`${isStartedVideo ? 'stop camera' : 'start camera'}`}>
+        <Tooltip title={`${isStartedVideo ? 'Stop camera' : 'Start camera'}`}>
           <Button
             className={classNames('vc-button', className)}
             icon={isStartedVideo ? <VideoCameraOutlined /> : <VideoCameraAddOutlined />}
