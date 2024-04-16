@@ -1,6 +1,6 @@
 {
   "name": "sidetime-session",
-  "version": "1.10.3",
+  "version": "1.10.4",
   "description": "Based on Zoom Video SDK",
   "dependencies": {
     "@ant-design/icons": "4.6.2",
