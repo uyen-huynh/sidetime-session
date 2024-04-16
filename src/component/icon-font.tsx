@@ -42,6 +42,9 @@ import { ReactComponent as IconAudioOn } from './svgs/icon-audio-on.svg';
 import { ReactComponent as IconAudioOff } from './svgs/icon-audio-off.svg';
 import { ReactComponent as IconAudioWarning } from './svgs/icon-audio-warning.svg';
 import { ReactComponent as IconAudioAnimation } from './svgs/icon-audio-active-animated.svg';
+import { ReactComponent as IconAudioMuted } from './svgs/microphone-slash.svg';
+import { ReactComponent as IconCameraDisabled } from './svgs/camera-slash.svg';
+
 const iconComponentMap: { [key: string]: any } = {
   'icon-advanced': IconAdvanced,
   'icon-chat': IconChat,
@@ -82,7 +85,9 @@ const iconComponentMap: { [key: string]: any } = {
   'icon-audio-on': IconAudioOn,
   'icon-audio-off': IconAudioOff,
   'icon-audio-warning': IconAudioWarning,
-  'icon-audio-animation': IconAudioAnimation
+  'icon-audio-animation': IconAudioAnimation,
+  'icon-audio-muted': IconAudioMuted,
+  'icon-camera-disabled': IconCameraDisabled
 };
 interface IconFontProps {
   type: string;
